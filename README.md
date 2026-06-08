@@ -1,13 +1,8 @@
-<a href="https://va1shakh.github.io/jsAdvanceNotes/"
-   style="
-    display:inline-block;
-    padding:12px 24px;
-    background:#000;
-    color:#fff;
-    text-decoration:none;
-    border-radius:8px;
-    font-weight:600;
-    font-family:Arial, sans-serif;
-   ">
-   🚀 Live Demo
-</a>
+<div align="center">
+
+<h1>⚡ JS Advanced Notes for Dummies</h1>
+
+<p>a modern, minimal, beginner-friendly guide to mastering advanced JavaScript concepts with clarity and simplicity.</p>
+
+</div>
+[![Live Demo](https://img.shields.io/badge/🚀_Open_Project-View_Site-black?style=for-the-badge&logo=github&logoColor=white)](https://va1shakh.github.io/jsAdvanceNotes/)
