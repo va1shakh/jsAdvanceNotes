@@ -1,0 +1,653 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hoisting — JavaScript Advanced Notes</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@400;500&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0d0d0f;
+    --surface: #141417;
+    --surface2: #1a1a1f;
+    --border: #252530;
+    --accent: #7c6af7;
+    --accent2: #4fd1c5;
+    --accent3: #f6ad55;
+    --text: #e8e8f0;
+    --muted: #7a7a94;
+    --code-bg: #0a0a0d;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Syne', sans-serif;
+    font-size: 16px;
+    line-height: 1.7;
+    min-height: 100vh;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0.5;
+  }
+
+  /* HEADER */
+  header {
+    position: relative;
+    padding: 80px 40px 60px;
+    border-bottom: 1px solid var(--border);
+    overflow: hidden;
+  }
+
+  header::after {
+    content: '';
+    position: absolute;
+    top: -60px; left: -60px;
+    width: 400px; height: 400px;
+    background: radial-gradient(circle, rgba(124,106,247,0.12) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  .header-tag {
+    display: inline-block;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--accent);
+    border: 1px solid rgba(124,106,247,0.3);
+    padding: 4px 12px;
+    border-radius: 20px;
+    margin-bottom: 20px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  header h1 {
+    font-size: clamp(28px, 5vw, 52px);
+    font-weight: 800;
+    line-height: 1.1;
+    letter-spacing: -0.03em;
+    max-width: 700px;
+  }
+
+  header h1 span {
+    font-family: 'Instrument Serif', serif;
+    font-style: italic;
+    color: var(--accent);
+  }
+
+  .header-sub {
+    margin-top: 16px;
+    color: var(--muted);
+    font-size: 14px;
+    font-weight: 400;
+    letter-spacing: 0.02em;
+  }
+
+  /* LAYOUT */
+  .container {
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 60px 40px;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* SECTION */
+  .section {
+    margin-bottom: 64px;
+    opacity: 0;
+    transform: translateY(24px);
+    transition: opacity 0.5s ease, transform 0.5s ease;
+  }
+
+  .section.visible { opacity: 1; transform: translateY(0); }
+
+  .section-number {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+    margin-bottom: 8px;
+  }
+
+  .section-title {
+    font-size: 24px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    margin-bottom: 28px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .section-title .dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--accent);
+    flex-shrink: 0;
+  }
+
+  /* PROSE */
+  .prose {
+    font-size: 15px;
+    color: #c0c0d4;
+    line-height: 1.8;
+    font-weight: 400;
+  }
+
+  .prose p { margin-bottom: 16px; }
+  .prose p:last-child { margin-bottom: 0; }
+  strong { color: var(--text); font-weight: 600; }
+
+  /* CODE BLOCKS */
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    border-radius: 8px;
+    padding: 20px 22px;
+    overflow-x: auto;
+    margin: 20px 0;
+    position: relative;
+  }
+
+  pre code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    line-height: 1.8;
+    color: #b0b0cc;
+  }
+
+  .kw  { color: #c792ea; }
+  .fn  { color: #82aaff; }
+  .str { color: #c3e88d; }
+  .cm  { color: #546e7a; font-style: italic; }
+  .num { color: var(--accent3); }
+  .ok  { color: var(--accent2); }
+  .err { color: #f87171; }
+
+  /* ANALOGY BLOCK */
+  .analogy-block {
+    background: linear-gradient(135deg, rgba(124,106,247,0.07), rgba(79,209,197,0.04));
+    border: 1px solid rgba(124,106,247,0.2);
+    border-radius: 12px;
+    padding: 24px 28px;
+    margin: 24px 0;
+  }
+
+  .analogy-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--accent2);
+    margin-bottom: 12px;
+  }
+
+  .analogy-block p {
+    font-size: 15px;
+    color: #c0c0d4;
+    line-height: 1.75;
+  }
+
+  /* CONCEPT BOX */
+  .concept-box {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px 22px;
+    background: var(--surface);
+    margin: 20px 0;
+    display: flex;
+    gap: 16px;
+    align-items: flex-start;
+  }
+
+  .concept-icon { font-size: 22px; flex-shrink: 0; margin-top: 2px; }
+
+  .concept-box h4 {
+    font-size: 14px;
+    font-weight: 700;
+    margin-bottom: 6px;
+    letter-spacing: 0.01em;
+  }
+
+  .concept-box p { font-size: 13px; color: var(--muted); line-height: 1.6; }
+
+  /* STEP LIST */
+  .step-list { list-style: none; margin: 20px 0; }
+
+  .step-list li {
+    display: flex;
+    gap: 14px;
+    align-items: flex-start;
+    margin-bottom: 14px;
+    font-size: 14px;
+    color: #c0c0d4;
+    line-height: 1.6;
+  }
+
+  .step-num {
+    flex-shrink: 0;
+    width: 24px; height: 24px;
+    background: rgba(124,106,247,0.15);
+    border: 1px solid rgba(124,106,247,0.3);
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--accent);
+    margin-top: 1px;
+  }
+
+  /* DANGER / SUCCESS CARDS */
+  .danger-card {
+    background: rgba(239,68,68,0.06);
+    border: 1px solid rgba(239,68,68,0.2);
+    border-radius: 12px;
+    padding: 20px 24px;
+    margin: 16px 0;
+  }
+
+  .danger-card .danger-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: #f87171;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+
+  .danger-card p { font-size: 14px; color: #c0c0d4; line-height: 1.7; }
+
+  /* VAR/LET/CONST CARDS */
+  .var-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 14px;
+    margin: 24px 0;
+  }
+
+  .var-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px 22px;
+    transition: border-color 0.2s, transform 0.2s;
+  }
+
+  .var-card:hover { border-color: rgba(124,106,247,0.35); transform: translateY(-2px); }
+
+  .var-card h3 {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 15px;
+    font-weight: 700;
+    margin-bottom: 6px;
+  }
+
+  .var-card h3.purple { color: var(--accent); }
+  .var-card h3.teal   { color: var(--accent2); }
+  .var-card h3.orange { color: var(--accent3); }
+
+  .var-card p { font-size: 13px; color: var(--muted); line-height: 1.6; }
+
+  /* TDZ HIGHLIGHT */
+  .tdz-box {
+    background: rgba(246,173,85,0.07);
+    border: 1px solid rgba(246,173,85,0.25);
+    border-radius: 10px;
+    padding: 18px 22px;
+    margin: 20px 0;
+  }
+
+  .tdz-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--accent3);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+
+  .tdz-box p { font-size: 14px; color: #c0c0d4; line-height: 1.7; }
+
+  /* MISCONCEPTION LIST */
+  .misconception {
+    border-left: 3px solid #f87171;
+    background: rgba(239,68,68,0.04);
+    border-radius: 0 8px 8px 0;
+    padding: 14px 18px;
+    margin: 14px 0;
+  }
+
+  .misconception .m-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: #f87171;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+
+  .misconception p { font-size: 14px; color: #c0c0d4; line-height: 1.65; }
+
+  /* SUMMARY TABLE */
+  .summary-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 24px 0;
+    font-size: 13px;
+  }
+
+  .summary-table th {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    text-align: left;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .summary-table td {
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--border);
+    color: #c0c0d4;
+    vertical-align: top;
+    line-height: 1.5;
+  }
+
+  .summary-table tr:last-child td { border-bottom: none; }
+  .summary-table tr:hover td { background: var(--surface2); }
+
+  .badge {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    display: inline-block;
+  }
+
+  .badge.green  { background: rgba(79,209,197,0.1);  color: var(--accent2); border: 1px solid rgba(79,209,197,0.2); }
+  .badge.red    { background: rgba(239,68,68,0.08);  color: #f87171;        border: 1px solid rgba(239,68,68,0.2); }
+  .badge.orange { background: rgba(246,173,85,0.08); color: var(--accent3); border: 1px solid rgba(246,173,85,0.2); }
+
+  /* TOC */
+  .toc {
+    position: fixed;
+    right: 32px;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    z-index: 100;
+  }
+
+  .toc-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--border);
+    cursor: pointer;
+    transition: background 0.2s, transform 0.2s;
+  }
+
+  .toc-dot:hover, .toc-dot.active { background: var(--accent); transform: scale(1.4); }
+
+  /* SCROLLBAR */
+  ::-webkit-scrollbar { width: 4px; height: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+  /* RESPONSIVE */
+  @media (max-width: 640px) {
+    header { padding: 48px 24px 40px; }
+    .container { padding: 40px 24px; }
+    .toc { display: none; }
+    .var-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<nav class="toc" id="toc"></nav>
+
+<header>
+  <h1>Hoisting in<br><span>JavaScript</span></h1>
+  <p class="header-sub">Beginner-Friendly, Step-by-Step Explanation</p>
+</header>
+
+<div class="container">
+
+  <!-- 1. Simple Definition -->
+  <section class="section" id="s1" data-title="Definition">
+    <div class="section-number">01</div>
+    <h2 class="section-title"><span class="dot"></span>🧠 Simple Definition</h2>
+    <div class="prose">
+      <p>Hoisting in JavaScript means the computer <strong>moves variable and function declarations to the top</strong> of their scope before running your code.</p>
+      <p>You can "use" some things before they appear in your code — because JavaScript secretly prepares (hoists) them to the top first.</p>
+    </div>
+    <div class="analogy-block">
+      <div class="analogy-label">👉 Think of hoisting like</div>
+      <p><strong>"JavaScript reads your code twice — first to collect declarations, then to run it."</strong></p>
+    </div>
+  </section>
+
+  <!-- 2. Breaking It Down -->
+  <section class="section" id="s2" data-title="Breaking It Down">
+    <div class="section-number">02</div>
+    <h2 class="section-title"><span class="dot"></span>🧩 Breaking It Down (Step-by-Step)</h2>
+    <div class="prose"><p>Hoisting applies mainly to two things:</p></div>
+
+    <!-- Function Declarations -->
+    <div class="concept-box" style="margin-top:20px;">
+      <div class="concept-icon">1️⃣</div>
+      <div style="flex:1;">
+        <h4>Function Declarations</h4>
+        <p>These are <strong>fully hoisted</strong>.</p>
+      </div>
+    </div>
+    <pre><code><span class="fn">sayHello</span>(); <span class="cm">// works fine!</span>
+
+<span class="kw">function</span> <span class="fn">sayHello</span>() {
+  <span class="fn">console</span>.<span class="fn">log</span>(<span class="str">"Hello!"</span>);
+}</code></pre>
+    <div class="concept-box">
+      <div class="concept-icon">✅</div>
+      <div>
+        <h4>This works because:</h4>
+        <p>JavaScript moves the whole function to the top internally.</p>
+      </div>
+    </div>
+
+    <!-- Variables -->
+    <div class="concept-box" style="margin-top:28px;">
+      <div class="concept-icon">2️⃣</div>
+      <div style="flex:1;">
+        <h4>Variables (var, let, const)</h4>
+        <p>Each behaves differently when hoisted.</p>
+      </div>
+    </div>
+
+    <div class="var-grid">
+      <!-- var -->
+      <div class="var-card">
+        <h3 class="purple">🔹 var</h3>
+        <p>Partially hoisted — declaration moves up but <strong>not its value</strong>.</p>
+      </div>
+      <!-- let -->
+      <div class="var-card">
+        <h3 class="teal">🔹 let</h3>
+        <p>Hoisted but placed in the <strong>Temporal Dead Zone</strong> — not usable until its line.</p>
+      </div>
+      <!-- const -->
+      <div class="var-card">
+        <h3 class="orange">🔹 const</h3>
+        <p>Same as let — hoisted but locked in the <strong>Temporal Dead Zone</strong>.</p>
+      </div>
+    </div>
+
+    <!-- var example -->
+    <div class="prose" style="margin-top:8px;"><p><strong>var — partially hoisted:</strong></p></div>
+    <pre><code><span class="fn">console</span>.<span class="fn">log</span>(a); <span class="cm">// undefined</span>
+<span class="kw">var</span> a = <span class="num">10</span>;</code></pre>
+    <div class="prose"><p>What actually happens inside JS:</p></div>
+    <pre><code><span class="kw">var</span> a;             <span class="cm">// hoisted (created first)</span>
+<span class="fn">console</span>.<span class="fn">log</span>(a); <span class="cm">// undefined</span>
+a = <span class="num">10</span>;           <span class="cm">// value assigned later</span></code></pre>
+    <div class="concept-box">
+      <div class="concept-icon">✅</div>
+      <div>
+        <h4>Key idea</h4>
+        <p><code style="font-family:'JetBrains Mono',monospace;color:var(--accent)">var</code> is hoisted but <strong>NOT its value</strong>.</p>
+      </div>
+    </div>
+
+    <!-- let/const example -->
+    <div class="prose" style="margin-top:24px;"><p><strong>let and const — hoisted but NOT usable yet:</strong></p></div>
+    <pre><code><span class="fn">console</span>.<span class="fn">log</span>(b); <span class="cm">// ❌ ReferenceError</span>
+<span class="kw">let</span> b = <span class="num">20</span>;</code></pre>
+    <div class="prose"><p>Why? They are hoisted BUT placed in a "dead zone" until the line where they are defined.</p></div>
+
+    <div class="tdz-box">
+      <div class="tdz-label">👉 This is called — Temporal Dead Zone (TDZ)</div>
+      <p>Think of it like: <strong>The variable exists, but it's locked until JavaScript officially reaches its line.</strong></p>
+    </div>
+  </section>
+
+  <!-- 3. Common Confusions -->
+  <section class="section" id="s3" data-title="Common Confusions">
+    <div class="section-number">03</div>
+    <h2 class="section-title"><span class="dot"></span>⚠️ Common Confusions</h2>
+
+    <div class="misconception">
+      <div class="m-label">❌ Misconception 1 — "Everything moves to the top"</div>
+      <p>Not true. Only <strong>declarations</strong> move — not assignments (like <code style="font-family:'JetBrains Mono',monospace;color:var(--accent3)">= 10</code>).</p>
+    </div>
+
+    <div class="misconception">
+      <div class="m-label">❌ Misconception 2 — "Hoisting means code physically moves"</div>
+      <p>Nope. Nothing actually moves in the file. It's just how JavaScript <strong>processes memory before execution</strong>.</p>
+    </div>
+
+    <div class="misconception">
+      <div class="m-label">❌ Misconception 3 — "let and const are not hoisted"</div>
+      <p>They <em>are</em> hoisted — but they are not accessible before declaration due to the <strong>Temporal Dead Zone (TDZ)</strong>.</p>
+    </div>
+  </section>
+
+  <!-- 4. Mental Model -->
+  <section class="section" id="s4" data-title="Mental Model">
+    <div class="section-number">04</div>
+    <h2 class="section-title"><span class="dot"></span>🧠 Mental Model (Easy to Remember)</h2>
+    <div class="prose"><p>Think of JavaScript like a <strong>2-step worker</strong>:</p></div>
+    <ul class="step-list" style="margin-top:20px;">
+      <li>
+        <span class="step-num">1</span>
+        <div><strong>Preparation phase</strong> — Collects all variable and function declarations. Sets up memory.</div>
+      </li>
+      <li>
+        <span class="step-num">2</span>
+        <div><strong>Execution phase</strong> — Runs your code line by line.</div>
+      </li>
+    </ul>
+  </section>
+
+  <!-- 5. Simple Summary -->
+  <section class="section" id="s5" data-title="Summary">
+    <div class="section-number">05</div>
+    <h2 class="section-title"><span class="dot"></span>🧾 Simple Summary</h2>
+
+    <table class="summary-table">
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Hoisted?</th>
+          <th>Usable before declaration?</th>
+          <th>Value before declaration</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code style="font-family:'JetBrains Mono',monospace;color:var(--accent)">function</code></td>
+          <td><span class="badge green">✓ Yes</span></td>
+          <td><span class="badge green">✓ Yes</span></td>
+          <td>Full function available</td>
+        </tr>
+        <tr>
+          <td><code style="font-family:'JetBrains Mono',monospace;color:var(--accent)">var</code></td>
+          <td><span class="badge green">✓ Yes</span></td>
+          <td><span class="badge orange">⚠ Sort of</span></td>
+          <td><code style="font-family:'JetBrains Mono',monospace;font-size:12px;">undefined</code></td>
+        </tr>
+        <tr>
+          <td><code style="font-family:'JetBrains Mono',monospace;color:var(--accent2)">let</code></td>
+          <td><span class="badge green">✓ Yes</span></td>
+          <td><span class="badge red">✗ No (TDZ)</span></td>
+          <td>ReferenceError</td>
+        </tr>
+        <tr>
+          <td><code style="font-family:'JetBrains Mono',monospace;color:var(--accent3)">const</code></td>
+          <td><span class="badge green">✓ Yes</span></td>
+          <td><span class="badge red">✗ No (TDZ)</span></td>
+          <td>ReferenceError</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="analogy-block">
+      <div class="analogy-label">🧾 In short</div>
+      <p>
+        Hoisting means JavaScript <strong>prepares variables and functions before running code</strong>.<br><br>
+        Functions are fully usable before they appear.<br>
+        <code style="font-family:'JetBrains Mono',monospace;color:var(--accent)">var</code> is hoisted but gives <code style="font-family:'JetBrains Mono',monospace;color:var(--accent3)">undefined</code>.<br>
+        <code style="font-family:'JetBrains Mono',monospace;color:var(--accent2)">let</code> and <code style="font-family:'JetBrains Mono',monospace;color:var(--accent3)">const</code> are hoisted but blocked until defined (TDZ).<br>
+        Only <strong>declarations</strong> are hoisted, not values.
+      </p>
+    </div>
+  </section>
+
+</div>
+
+<script>
+  const sections = document.querySelectorAll('.section');
+  const toc = document.getElementById('toc');
+
+  sections.forEach((sec) => {
+    const dot = document.createElement('div');
+    dot.className = 'toc-dot';
+    dot.title = sec.dataset.title || '';
+    dot.addEventListener('click', () => sec.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+    toc.appendChild(dot);
+  });
+
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      const idx = [...sections].indexOf(entry.target);
+      if (entry.isIntersecting) {
+        entry.target.classList.add('visible');
+        document.querySelectorAll('.toc-dot').forEach((d, i) => {
+          d.classList.toggle('active', i === idx);
+        });
+      }
+    });
+  }, { threshold: 0.15 });
+
+  sections.forEach(s => observer.observe(s));
+</script>
+</body>
+</html>
