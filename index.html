@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JavaScript Advanced Notes</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@400;500&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0d0d0f;
+    --surface: #141417;
+    --border: #252530;
+    --accent: #7c6af7;
+    --text: #e8e8f0;
+    --muted: #7a7a94;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Syne', sans-serif;
+    min-height: 100vh;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0.5;
+  }
+
+  header {
+    position: relative;
+    padding: 80px 40px 60px;
+    border-bottom: 1px solid var(--border);
+    overflow: hidden;
+  }
+
+  header::after {
+    content: '';
+    position: absolute;
+    top: -80px; left: -80px;
+    width: 480px; height: 480px;
+    background: radial-gradient(circle, rgba(124,106,247,0.10) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  .header-tag {
+    display: inline-block;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--accent);
+    border: 1px solid rgba(124,106,247,0.3);
+    padding: 4px 12px;
+    border-radius: 20px;
+    margin-bottom: 20px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  header h1 {
+    font-size: clamp(32px, 6vw, 58px);
+    font-weight: 800;
+    line-height: 1.05;
+    letter-spacing: -0.03em;
+  }
+
+  header h1 span {
+    font-family: 'Instrument Serif', serif;
+    font-style: italic;
+    color: var(--accent);
+  }
+
+  .header-sub {
+    margin-top: 14px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: var(--muted);
+    letter-spacing: 0.04em;
+  }
+
+  .container {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 60px 40px 100px;
+    position: relative;
+    z-index: 1;
+  }
+
+  .topic-list {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .topic-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 24px;
+    padding: 22px 0;
+    border-bottom: 1px solid var(--border);
+    text-decoration: none;
+    color: inherit;
+    opacity: 0;
+    transform: translateY(12px);
+    transition: opacity 0.4s ease, transform 0.4s ease;
+  }
+
+  .topic-item.visible { opacity: 1; transform: translateY(0); }
+  .topic-item:first-child { border-top: 1px solid var(--border); }
+  .topic-item:hover .topic-title { color: var(--accent); }
+  .topic-item:hover .topic-num { color: var(--accent); }
+  .topic-item:hover .topic-arrow { opacity: 1; transform: translateX(4px); }
+
+  .topic-num {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    color: var(--muted);
+    min-width: 28px;
+    padding-top: 2px;
+    transition: color 0.2s;
+  }
+
+  .topic-body { flex: 1; }
+
+  .topic-title {
+    font-size: 17px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    line-height: 1.3;
+    margin-bottom: 5px;
+    transition: color 0.2s;
+  }
+
+  .topic-desc {
+    font-size: 13px;
+    color: var(--muted);
+    font-weight: 400;
+    line-height: 1.6;
+  }
+
+  .topic-arrow {
+    font-size: 16px;
+    color: var(--accent);
+    opacity: 0;
+    transition: opacity 0.2s, transform 0.2s;
+    padding-top: 3px;
+    flex-shrink: 0;
+  }
+
+  @media (max-width: 600px) {
+    header { padding: 48px 24px 40px; }
+    .container { padding: 40px 24px 80px; }
+    .topic-item { gap: 16px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-tag">// JS Advanced</div>
+  <h1>JavaScript<br><span>Notes</span></h1>
+  <p class="header-sub">14 topics — step by step</p>
+</header>
+
+<div class="container">
+  <div class="topic-list" id="topicList"></div>
+</div>
+
+<script>
+const topics = [
+  { title: "Execution Context, Call Stack & Event Loop", desc: "How JS runs code, manages function calls, and handles async tasks.", href: "jsExec.html" }
+];
+
+const list = document.getElementById("topicList");
+
+topics.forEach((t, i) => {
+  const a = document.createElement("a");
+  a.className = "topic-item";
+  a.href = t.href;
+  a.innerHTML = `
+    <span class="topic-num">${String(i + 1).padStart(2, "0")}</span>
+    <div class="topic-body">
+      <div class="topic-title">${t.title}</div>
+      <div class="topic-desc">${t.desc}</div>
+    </div>
+    <span class="topic-arrow">→</span>
+  `;
+  list.appendChild(a);
+});
+
+const observer = new IntersectionObserver(entries => {
+  entries.forEach(e => { if (e.isIntersecting) e.target.classList.add("visible"); });
+}, { threshold: 0.1 });
+
+document.querySelectorAll(".topic-item").forEach((el, i) => {
+  el.style.transitionDelay = `${i * 0.04}s`;
+  observer.observe(el);
+});
+</script>
+</body>
+</html>

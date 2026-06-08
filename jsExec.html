@@ -1,0 +1,929 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JavaScript Execution Context, Call Stack & Event Loop</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@400;500&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0d0d0f;
+    --surface: #141417;
+    --surface2: #1a1a1f;
+    --border: #252530;
+    --accent: #7c6af7;
+    --accent2: #4fd1c5;
+    --accent3: #f6ad55;
+    --text: #e8e8f0;
+    --muted: #7a7a94;
+    --code-bg: #0a0a0d;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Syne', sans-serif;
+    font-size: 16px;
+    line-height: 1.7;
+    min-height: 100vh;
+  }
+
+  /* Noise overlay */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0.5;
+  }
+
+  /* === HEADER === */
+  header {
+    position: relative;
+    padding: 80px 40px 60px;
+    border-bottom: 1px solid var(--border);
+    overflow: hidden;
+  }
+
+  header::after {
+    content: '';
+    position: absolute;
+    top: -60px; left: -60px;
+    width: 400px; height: 400px;
+    background: radial-gradient(circle, rgba(124,106,247,0.12) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  .header-tag {
+    display: inline-block;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--accent);
+    border: 1px solid rgba(124,106,247,0.3);
+    padding: 4px 12px;
+    border-radius: 20px;
+    margin-bottom: 20px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  header h1 {
+    font-size: clamp(28px, 5vw, 52px);
+    font-weight: 800;
+    line-height: 1.1;
+    letter-spacing: -0.03em;
+    max-width: 700px;
+  }
+
+  header h1 span {
+    font-family: 'Instrument Serif', serif;
+    font-style: italic;
+    color: var(--accent);
+  }
+
+  .header-sub {
+    margin-top: 16px;
+    color: var(--muted);
+    font-size: 14px;
+    font-weight: 400;
+    letter-spacing: 0.02em;
+  }
+
+  /* === LAYOUT === */
+  .container {
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 60px 40px;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* === SECTION === */
+  .section {
+    margin-bottom: 64px;
+    opacity: 0;
+    transform: translateY(24px);
+    transition: opacity 0.5s ease, transform 0.5s ease;
+  }
+
+  .section.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  .section-number {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+    margin-bottom: 8px;
+  }
+
+  .section-title {
+    font-size: 24px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    margin-bottom: 28px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .section-title .dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--accent);
+    flex-shrink: 0;
+  }
+
+  /* === DEFINITION CARDS === */
+  .def-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 16px;
+    margin-bottom: 32px;
+  }
+
+  .def-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px 22px;
+    transition: border-color 0.2s, transform 0.2s;
+  }
+
+  .def-card:hover {
+    border-color: rgba(124,106,247,0.4);
+    transform: translateY(-2px);
+  }
+
+  .def-card h3 {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--accent);
+    margin-bottom: 8px;
+    letter-spacing: 0.01em;
+  }
+
+  .def-card p {
+    font-size: 14px;
+    color: var(--muted);
+    line-height: 1.6;
+    font-weight: 400;
+  }
+
+  /* === PROSE === */
+  .prose {
+    font-size: 15px;
+    color: #c0c0d4;
+    line-height: 1.8;
+    font-weight: 400;
+  }
+
+  .prose p { margin-bottom: 16px; }
+  .prose p:last-child { margin-bottom: 0; }
+
+  strong { color: var(--text); font-weight: 600; }
+
+  /* === CODE BLOCKS === */
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    border-radius: 8px;
+    padding: 20px 22px;
+    overflow-x: auto;
+    margin: 20px 0;
+    position: relative;
+  }
+
+  pre code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    line-height: 1.7;
+    color: #b0b0cc;
+  }
+
+  .kw { color: #c792ea; }
+  .fn { color: #82aaff; }
+  .str { color: #c3e88d; }
+  .cm { color: #546e7a; font-style: italic; }
+  .num { color: var(--accent3); }
+
+  /* === ANALOGY BLOCK === */
+  .analogy-block {
+    background: linear-gradient(135deg, rgba(124,106,247,0.07), rgba(79,209,197,0.04));
+    border: 1px solid rgba(124,106,247,0.2);
+    border-radius: 12px;
+    padding: 24px 28px;
+    margin: 24px 0;
+  }
+
+  .analogy-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--accent2);
+    margin-bottom: 14px;
+  }
+
+  .analogy-block p {
+    font-size: 15px;
+    color: #c0c0d4;
+    line-height: 1.75;
+    font-weight: 400;
+  }
+
+  /* === TEAM ROW === */
+  .team-row {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin: 20px 0;
+  }
+
+  .team-pill {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 16px;
+    font-size: 13px;
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--text);
+  }
+
+  .team-pill span {
+    color: var(--muted);
+    font-size: 11px;
+    display: block;
+    margin-top: 2px;
+  }
+
+  /* === STACK VISUALIZER === */
+  .stack-steps {
+    display: flex;
+    gap: 16px;
+    overflow-x: auto;
+    padding-bottom: 12px;
+    margin: 24px 0;
+    scroll-snap-type: x mandatory;
+  }
+
+  .stack-step {
+    flex-shrink: 0;
+    width: 130px;
+    scroll-snap-align: start;
+  }
+
+  .stack-step-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 0.08em;
+    margin-bottom: 8px;
+    text-align: center;
+  }
+
+  .stack-visual {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+    min-height: 120px;
+    display: flex;
+    flex-direction: column-reverse;
+  }
+
+  .stack-item {
+    padding: 8px 10px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    border-top: 1px solid var(--border);
+    text-align: center;
+    color: #c0c0d4;
+    transition: background 0.2s;
+  }
+
+  .stack-item.top {
+    background: rgba(124,106,247,0.15);
+    color: var(--accent);
+  }
+
+  .stack-item.global {
+    color: var(--muted);
+    font-size: 11px;
+  }
+
+  .stack-empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 80px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--border);
+  }
+
+  /* === EVENT LOOP FLOW === */
+  .flow-chain {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 20px 0;
+  }
+
+  .flow-node {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 16px;
+    font-size: 13px;
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--text);
+    white-space: nowrap;
+  }
+
+  .flow-node.highlight {
+    border-color: var(--accent2);
+    color: var(--accent2);
+    background: rgba(79,209,197,0.07);
+  }
+
+  .flow-arrow {
+    color: var(--muted);
+    font-size: 16px;
+  }
+
+  /* === OUTPUT TRACE === */
+  .output-trace {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px 20px;
+    margin: 16px 0;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    color: #c3e88d;
+  }
+
+  .output-trace .label {
+    color: var(--muted);
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+
+  .output-trace .line {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 4px;
+    align-items: center;
+  }
+
+  .output-trace .line-num {
+    color: var(--muted);
+    width: 16px;
+    text-align: right;
+    font-size: 11px;
+  }
+
+  /* === OVERFLOW CARD === */
+  .danger-card {
+    background: rgba(239,68,68,0.06);
+    border: 1px solid rgba(239,68,68,0.2);
+    border-radius: 12px;
+    padding: 20px 24px;
+    margin: 20px 0;
+  }
+
+  .danger-card .danger-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: #f87171;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+
+  .danger-card p {
+    font-size: 14px;
+    color: #c0c0d4;
+    line-height: 1.7;
+  }
+
+  .success-card {
+    background: rgba(79,209,197,0.05);
+    border: 1px solid rgba(79,209,197,0.2);
+    border-radius: 12px;
+    padding: 20px 24px;
+    margin: 20px 0;
+  }
+
+  .success-card .success-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--accent2);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+
+  /* === STEP LIST === */
+  .step-list {
+    list-style: none;
+    margin: 20px 0;
+  }
+
+  .step-list li {
+    display: flex;
+    gap: 14px;
+    align-items: flex-start;
+    margin-bottom: 14px;
+    font-size: 14px;
+    color: #c0c0d4;
+    line-height: 1.6;
+  }
+
+  .step-num {
+    flex-shrink: 0;
+    width: 24px; height: 24px;
+    background: rgba(124,106,247,0.15);
+    border: 1px solid rgba(124,106,247,0.3);
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--accent);
+    margin-top: 1px;
+  }
+
+  /* === INFO ROW === */
+  .info-row {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin: 20px 0;
+  }
+
+  .info-chip {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 6px 14px;
+    font-size: 13px;
+    color: var(--muted);
+  }
+
+  .info-chip strong {
+    color: var(--accent3);
+    font-weight: 600;
+  }
+
+  /* === LIFO BOX === */
+  .concept-box {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px 22px;
+    background: var(--surface);
+    margin: 20px 0;
+    display: flex;
+    gap: 16px;
+    align-items: flex-start;
+  }
+
+  .concept-icon {
+    font-size: 22px;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+
+  .concept-box h4 {
+    font-size: 14px;
+    font-weight: 700;
+    margin-bottom: 6px;
+    letter-spacing: 0.01em;
+  }
+
+  .concept-box p {
+    font-size: 13px;
+    color: var(--muted);
+    line-height: 1.6;
+  }
+
+  /* === TOC SIDEBAR === */
+  .toc {
+    position: fixed;
+    right: 32px;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    z-index: 100;
+  }
+
+  .toc-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--border);
+    cursor: pointer;
+    transition: background 0.2s, transform 0.2s;
+  }
+
+  .toc-dot:hover, .toc-dot.active {
+    background: var(--accent);
+    transform: scale(1.4);
+  }
+
+  /* === SCROLLBAR === */
+  ::-webkit-scrollbar { width: 4px; height: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+  /* === RESPONSIVE === */
+  @media (max-width: 640px) {
+    header { padding: 48px 24px 40px; }
+    .container { padding: 40px 24px; }
+    .toc { display: none; }
+    .def-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<nav class="toc" id="toc"></nav>
+
+<header>
+  <h1>Execution Context,<br>Call Stack &amp; <span>Event Loop</span></h1>
+  <p class="header-sub">Beginner-Friendly, Step-by-Step Explanation</p>
+</header>
+
+<div class="container">
+
+  <!-- 1. Simple Definition -->
+  <section class="section" id="s1" data-title="Definitions">
+    <div class="section-number">01</div>
+    <h2 class="section-title"><span class="dot"></span>Simple Definition</h2>
+    <div class="def-grid">
+      <div class="def-card">
+        <h3>Execution Context</h3>
+        <p>An Execution Context is the environment where JavaScript runs your code and keeps track of everything it needs.</p>
+      </div>
+      <div class="def-card">
+        <h3>Call Stack</h3>
+        <p>The Call Stack is JavaScript's to-do list that keeps track of which function is currently running.</p>
+      </div>
+      <div class="def-card">
+        <h3>Event Loop</h3>
+        <p>The Event Loop is a manager that checks when asynchronous tasks are finished and sends them back to JavaScript to run.</p>
+      </div>
+      <div class="def-card">
+        <h3>Stack Overflow</h3>
+        <p>Stack Overflow happens when too many functions are added to the Call Stack and it runs out of space.</p>
+      </div>
+      <div class="def-card">
+        <h3>Stack Underflow</h3>
+        <p>Stack Underflow means trying to remove something from an empty stack (rarely seen directly in JavaScript).</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 2. Big Picture -->
+  <section class="section" id="s2" data-title="Big Picture">
+    <div class="section-number">02</div>
+    <h2 class="section-title"><span class="dot"></span>Big Picture First</h2>
+    <div class="prose">
+      <p>Before learning each concept separately, understand this:</p>
+      <p>When JavaScript runs code:</p>
+    </div>
+    <pre><code><span class="fn">console</span>.<span class="fn">log</span>(<span class="str">"Hello"</span>);</code></pre>
+    <div class="prose"><p>JavaScript needs:</p></div>
+    <div class="team-row">
+      <div class="team-pill">A place to execute code <span>→ Execution Context</span></div>
+      <div class="team-pill">A way to remember what is running <span>→ Call Stack</span></div>
+      <div class="team-pill">A way to handle async tasks <span>→ Event Loop</span></div>
+    </div>
+    <div class="prose"><p>Think of them as a team:</p></div>
+    <div class="team-row">
+      <div class="team-pill">Execution Context <span>= Workspace</span></div>
+      <div class="team-pill">Call Stack <span>= Task Tracker</span></div>
+      <div class="team-pill">Event Loop <span>= Traffic Police</span></div>
+    </div>
+  </section>
+
+  <!-- 3. Analogy -->
+  <section class="section" id="s3" data-title="Analogy">
+    <div class="section-number">03</div>
+    <h2 class="section-title"><span class="dot"></span>Analogy: A Chef in a Kitchen</h2>
+    <div class="prose"><p>Imagine a chef cooking food.</p></div>
+
+    <div class="analogy-block">
+      <div class="analogy-label">🍳 Execution Context = Kitchen</div>
+      <p>The chef needs a kitchen to work in. The kitchen contains: Ingredients, Tools, Instructions.<br><br>Similarly, Execution Context contains: Variables, Functions, Current code.</p>
+    </div>
+
+    <div class="analogy-block">
+      <div class="analogy-label">🍽️ Call Stack = Plate Stack</div>
+      <p>Imagine plates stacked on top of each other.<br><br>
+        <strong>Plate 3 ← Top</strong><br>
+        Plate 2<br>
+        Plate 1<br><br>
+        You can only put a plate on top, and remove a plate from top. This is exactly how the Call Stack works.
+      </p>
+    </div>
+
+    <div class="analogy-block">
+      <div class="analogy-label">🤵 Event Loop = Waiter</div>
+      <p>Suppose the chef puts a cake in the oven. The chef doesn't stand there watching. Instead:</p>
+      <br>
+      <p>Chef starts cake → Cake baking → Chef continues other work → Waiter informs chef: <strong>"Cake is ready!"</strong><br><br>The waiter is like the Event Loop.</p>
+    </div>
+  </section>
+
+  <!-- 4. Execution Context -->
+  <section class="section" id="s4" data-title="Exec Context">
+    <div class="section-number">04</div>
+    <h2 class="section-title"><span class="dot"></span>Breaking Down Execution Context</h2>
+    <div class="prose"><p>Think of it as a workspace. When JavaScript sees:</p></div>
+    <pre><code><span class="kw">let</span> name = <span class="str">"John"</span>;
+
+<span class="kw">function</span> <span class="fn">greet</span>() {
+  <span class="fn">console</span>.<span class="fn">log</span>(<span class="str">"Hi"</span>);
+}</code></pre>
+    <div class="prose"><p>JavaScript creates a workspace containing:</p></div>
+    <div class="info-row">
+      <div class="info-chip">Variables: <strong>name → "John"</strong></div>
+      <div class="info-chip">Functions: <strong>greet() → function definition</strong></div>
+    </div>
+
+    <div class="prose" style="margin-top:28px;"><p><strong>Types of Execution Context</strong></p></div>
+
+    <div class="concept-box" style="margin-top:12px;">
+      <div class="concept-icon">🌐</div>
+      <div>
+        <h4>1. Global Execution Context</h4>
+        <p>Created automatically when the file starts. Think: <strong>Whole Program Workspace</strong></p>
+        <pre style="margin-top:10px;"><code><span class="kw">let</span> age = <span class="num">20</span>; <span class="cm">// belongs to Global Execution Context</span></code></pre>
+      </div>
+    </div>
+
+    <div class="concept-box">
+      <div class="concept-icon">⚙️</div>
+      <div>
+        <h4>2. Function Execution Context</h4>
+        <p>Created whenever a function runs. Think: <strong>Function Workspace</strong></p>
+        <pre style="margin-top:10px;"><code><span class="kw">function</span> <span class="fn">greet</span>() {
+  <span class="kw">let</span> message = <span class="str">"Hello"</span>;
+}
+
+<span class="fn">greet</span>(); <span class="cm">// new workspace created here</span></code></pre>
+      </div>
+    </div>
+  </section>
+
+  <!-- 5. Call Stack -->
+  <section class="section" id="s5" data-title="Call Stack">
+    <div class="section-number">05</div>
+    <h2 class="section-title"><span class="dot"></span>Breaking Down the Call Stack</h2>
+    <pre><code><span class="kw">function</span> <span class="fn">one</span>() {
+  <span class="fn">two</span>();
+}
+
+<span class="kw">function</span> <span class="fn">two</span>() {
+  <span class="fn">console</span>.<span class="fn">log</span>(<span class="str">"Hello"</span>);
+}
+
+<span class="fn">one</span>();</code></pre>
+
+    <div class="prose" style="margin-bottom:16px;">Scroll to see each step of the Call Stack:</div>
+    <div class="stack-steps">
+      <div class="stack-step">
+        <div class="stack-step-label">STEP 1</div>
+        <div class="stack-visual">
+          <div class="stack-item top">Global</div>
+        </div>
+      </div>
+      <div class="stack-step">
+        <div class="stack-step-label">STEP 2</div>
+        <div class="stack-visual">
+          <div class="stack-item top">one()</div>
+          <div class="stack-item global">Global</div>
+        </div>
+      </div>
+      <div class="stack-step">
+        <div class="stack-step-label">STEP 3</div>
+        <div class="stack-visual">
+          <div class="stack-item top">two()</div>
+          <div class="stack-item">one()</div>
+          <div class="stack-item global">Global</div>
+        </div>
+      </div>
+      <div class="stack-step">
+        <div class="stack-step-label">STEP 4</div>
+        <div class="stack-visual">
+          <div class="stack-item top">one()</div>
+          <div class="stack-item global">Global</div>
+        </div>
+      </div>
+      <div class="stack-step">
+        <div class="stack-step-label">STEP 5</div>
+        <div class="stack-visual">
+          <div class="stack-item top">Global</div>
+        </div>
+      </div>
+      <div class="stack-step">
+        <div class="stack-step-label">STEP 6</div>
+        <div class="stack-visual">
+          <div class="stack-empty">( empty )</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="concept-box">
+      <div class="concept-icon">📚</div>
+      <div>
+        <h4>Key Rule — Last In, First Out (LIFO)</h4>
+        <p>Think: Books stacked on a table. Last book placed → First book removed.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 6. Together -->
+  <section class="section" id="s6" data-title="Together">
+    <div class="section-number">06</div>
+    <h2 class="section-title"><span class="dot"></span>How Execution Context and Call Stack Work Together</h2>
+    <div class="prose"><p>When a function runs:</p></div>
+    <pre><code><span class="kw">function</span> <span class="fn">greet</span>() {
+  <span class="fn">console</span>.<span class="fn">log</span>(<span class="str">"Hi"</span>);
+}
+
+<span class="fn">greet</span>();</code></pre>
+    <div class="prose"><p>JavaScript:</p></div>
+    <ul class="step-list">
+      <li><span class="step-num">1</span> Creates Function Execution Context.</li>
+      <li><span class="step-num">2</span> Pushes it onto Call Stack → <code style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--accent)">greet() | Global</code></li>
+      <li><span class="step-num">3</span> Runs the function.</li>
+      <li><span class="step-num">4</span> Removes it from stack → <code style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--accent)">Global</code></li>
+    </ul>
+  </section>
+
+  <!-- 7. Event Loop Problem -->
+  <section class="section" id="s7" data-title="Event Loop">
+    <div class="section-number">07</div>
+    <h2 class="section-title"><span class="dot"></span>What Problem Does Event Loop Solve?</h2>
+    <div class="analogy-block">
+      <div class="analogy-label">⚡ JavaScript is Single Threaded</div>
+      <p>Meaning: <strong>One thing at a time.</strong></p>
+    </div>
+    <pre><code><span class="fn">console</span>.<span class="fn">log</span>(<span class="str">"A"</span>);
+
+<span class="fn">setTimeout</span>(() => {
+  <span class="fn">console</span>.<span class="fn">log</span>(<span class="str">"B"</span>);
+}, <span class="num">2000</span>);
+
+<span class="fn">console</span>.<span class="fn">log</span>(<span class="str">"C"</span>);</code></pre>
+    <div class="prose"><p>What should happen?</p></div>
+    <div style="display:flex;gap:16px;flex-wrap:wrap;margin:16px 0;">
+      <div class="danger-card" style="flex:1;min-width:220px;">
+        <div class="danger-label">❌ Without Event Loop</div>
+        <p>A → (wait 2 seconds) → B → C<br>That would <strong>freeze everything.</strong></p>
+      </div>
+      <div class="success-card" style="flex:1;min-width:220px;">
+        <div class="success-label">✅ With Event Loop</div>
+        <div class="output-trace" style="margin:8px 0 0;">
+          <div class="line"><span class="line-num">1</span> A</div>
+          <div class="line"><span class="line-num">2</span> C</div>
+          <div class="line"><span class="line-num">3</span> B</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 8. Event Loop Step by Step -->
+  <section class="section" id="s8" data-title="Event Loop Steps">
+    <div class="section-number">08</div>
+    <h2 class="section-title"><span class="dot"></span>Event Loop Step-by-Step</h2>
+    <ul class="step-list">
+      <li><span class="step-num">1</span> Run <code style="font-family:'JetBrains Mono',monospace;font-size:12px;color:#c3e88d">console.log("A")</code> → Output: <strong>A</strong></li>
+      <li><span class="step-num">2</span> See <code style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--accent)">setTimeout(...)</code> → JavaScript says: <em>"Browser, you handle the timer."</em> Timer starts outside the Call Stack.</li>
+      <li><span class="step-num">3</span> Continue running: <code style="font-family:'JetBrains Mono',monospace;font-size:12px;color:#c3e88d">console.log("C")</code> → Output: <strong>C</strong></li>
+      <li><span class="step-num">4</span> After 2 seconds — Timer finishes. Callback goes to: <strong>Callback Queue</strong></li>
+      <li><span class="step-num">5</span> Event Loop checks: <em>Is Call Stack empty?</em> If yes → Move callback into stack → <code style="font-family:'JetBrains Mono',monospace;font-size:12px;color:#c3e88d">console.log("B")</code> → Output: <strong>B</strong></li>
+    </ul>
+
+    <div class="prose" style="margin-bottom:12px;">Visual Flow:</div>
+    <div class="flow-chain">
+      <div class="flow-node">Call Stack</div>
+      <span class="flow-arrow">↓</span>
+      <div class="flow-node">Web APIs</div>
+      <span class="flow-arrow">↓</span>
+      <div class="flow-node">Callback Queue</div>
+      <span class="flow-arrow">↓</span>
+      <div class="flow-node highlight">Event Loop</div>
+      <span class="flow-arrow">↓</span>
+      <div class="flow-node">Call Stack</div>
+    </div>
+    <div class="analogy-block" style="margin-top:20px;">
+      <div class="analogy-label">Think of it as</div>
+      <p>Work Assigned → Work Finished → Waiting Room → Event Loop Checks → Runs Again</p>
+    </div>
+  </section>
+
+  <!-- 9. Stack Overflow -->
+  <section class="section" id="s9" data-title="Stack Overflow">
+    <div class="section-number">09</div>
+    <h2 class="section-title"><span class="dot"></span>What is Stack Overflow?</h2>
+    <div class="prose"><p>Imagine stacking books forever. Eventually the stack becomes too tall and crashes. Same thing happens in JavaScript.</p></div>
+    <pre><code><span class="kw">function</span> <span class="fn">hello</span>() {
+  <span class="fn">hello</span>(); <span class="cm">// calls itself forever</span>
+}
+
+<span class="fn">hello</span>();</code></pre>
+    <div class="danger-card">
+      <div class="danger-label">💥 Error</div>
+      <p>The Call Stack grows infinitely: hello() → hello() → hello() → hello() → ...<br><br>Eventually: <strong>Maximum call stack size exceeded</strong></p>
+    </div>
+    <div class="prose" style="margin:20px 0 10px;"><p>Why It Happens — usually because of <strong>Infinite Recursion</strong> with no stopping condition.</p></div>
+    <div style="display:flex;gap:16px;flex-wrap:wrap;">
+      <div style="flex:1;min-width:220px;">
+        <div class="danger-card">
+          <div class="danger-label">❌ Wrong — No stopping condition</div>
+          <pre style="margin:0;background:transparent;border:none;padding:0;"><code><span class="kw">function</span> <span class="fn">run</span>() {
+  <span class="fn">run</span>();
+}</code></pre>
+        </div>
+      </div>
+      <div style="flex:1;min-width:220px;">
+        <div class="success-card">
+          <div class="success-label">✅ Correct — Has stopping condition</div>
+          <pre style="margin:0;background:transparent;border:none;padding:0;"><code><span class="kw">function</span> <span class="fn">run</span>(n) {
+  <span class="kw">if</span> (n === <span class="num">0</span>) <span class="kw">return</span>;
+  <span class="fn">run</span>(n - <span class="num">1</span>);
+}</code></pre>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 10. Stack Underflow -->
+  <section class="section" id="s10" data-title="Stack Underflow">
+    <div class="section-number">10</div>
+    <h2 class="section-title"><span class="dot"></span>What is Stack Underflow?</h2>
+    <div class="analogy-block">
+      <div class="analogy-label">📭 Imagine</div>
+      <p>Stack is empty → Then someone says: <strong>"Remove a plate."</strong> → There is nothing to remove.<br><br>That's <strong>Stack Underflow</strong>.</p>
+    </div>
+    <div class="concept-box">
+      <div class="concept-icon">🛡️</div>
+      <div>
+        <h4>In JavaScript</h4>
+        <p>In data structures, pop from empty stack = Underflow.<br><br>The JavaScript engine prevents this internally. So developers almost never see stack underflow errors directly.</p>
+      </div>
+    </div>
+  </section>
+
+</div><!-- /container -->
+
+<script>
+  // Build TOC dots
+  const sections = document.querySelectorAll('.section');
+  const toc = document.getElementById('toc');
+
+  sections.forEach((sec, i) => {
+    const dot = document.createElement('div');
+    dot.className = 'toc-dot';
+    dot.title = sec.dataset.title || '';
+    dot.addEventListener('click', () => sec.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+    toc.appendChild(dot);
+  });
+
+  // Intersection Observer for scroll reveal + active dot
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      const idx = [...sections].indexOf(entry.target);
+      if (entry.isIntersecting) {
+        entry.target.classList.add('visible');
+        document.querySelectorAll('.toc-dot').forEach((d, i) => {
+          d.classList.toggle('active', i === idx);
+        });
+      }
+    });
+  }, { threshold: 0.15 });
+
+  sections.forEach(s => observer.observe(s));
+</script>
+</body>
+</html>
