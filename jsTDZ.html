@@ -1,0 +1,751 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Temporal Dead Zone — JavaScript Advanced Notes</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@400;500&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0d0d0f;
+    --surface: #141417;
+    --surface2: #1a1a1f;
+    --border: #252530;
+    --accent: #7c6af7;
+    --accent2: #4fd1c5;
+    --accent3: #f6ad55;
+    --text: #e8e8f0;
+    --muted: #7a7a94;
+    --code-bg: #0a0a0d;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Syne', sans-serif;
+    font-size: 16px;
+    line-height: 1.7;
+    min-height: 100vh;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0.5;
+  }
+
+  header {
+    position: relative;
+    padding: 80px 40px 60px;
+    border-bottom: 1px solid var(--border);
+    overflow: hidden;
+  }
+
+  header::after {
+    content: '';
+    position: absolute;
+    top: -60px; left: -60px;
+    width: 400px; height: 400px;
+    background: radial-gradient(circle, rgba(124,106,247,0.12) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  .header-tag {
+    display: inline-block;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--accent);
+    border: 1px solid rgba(124,106,247,0.3);
+    padding: 4px 12px;
+    border-radius: 20px;
+    margin-bottom: 20px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  header h1 {
+    font-size: clamp(28px, 5vw, 52px);
+    font-weight: 800;
+    line-height: 1.1;
+    letter-spacing: -0.03em;
+    max-width: 700px;
+  }
+
+  header h1 span {
+    font-family: 'Instrument Serif', serif;
+    font-style: italic;
+    color: var(--accent);
+  }
+
+  .header-sub {
+    margin-top: 16px;
+    color: var(--muted);
+    font-size: 14px;
+    font-weight: 400;
+    letter-spacing: 0.02em;
+  }
+
+  .container {
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 60px 40px;
+    position: relative;
+    z-index: 1;
+  }
+
+  .section {
+    margin-bottom: 64px;
+    opacity: 0;
+    transform: translateY(24px);
+    transition: opacity 0.5s ease, transform 0.5s ease;
+  }
+
+  .section.visible { opacity: 1; transform: translateY(0); }
+
+  .section-number {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+    margin-bottom: 8px;
+  }
+
+  .section-title {
+    font-size: 24px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    margin-bottom: 28px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .section-title .dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--accent);
+    flex-shrink: 0;
+  }
+
+  .prose { font-size: 15px; color: #c0c0d4; line-height: 1.8; font-weight: 400; }
+  .prose p { margin-bottom: 16px; }
+  .prose p:last-child { margin-bottom: 0; }
+  strong { color: var(--text); font-weight: 600; }
+
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    border-radius: 8px;
+    padding: 20px 22px;
+    overflow-x: auto;
+    margin: 20px 0;
+  }
+
+  pre code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    line-height: 1.8;
+    color: #b0b0cc;
+  }
+
+  .kw  { color: #c792ea; }
+  .fn  { color: #82aaff; }
+  .str { color: #c3e88d; }
+  .cm  { color: #546e7a; font-style: italic; }
+  .num { color: var(--accent3); }
+
+  .analogy-block {
+    background: linear-gradient(135deg, rgba(124,106,247,0.07), rgba(79,209,197,0.04));
+    border: 1px solid rgba(124,106,247,0.2);
+    border-radius: 12px;
+    padding: 24px 28px;
+    margin: 24px 0;
+  }
+
+  .analogy-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--accent2);
+    margin-bottom: 12px;
+  }
+
+  .analogy-block p { font-size: 15px; color: #c0c0d4; line-height: 1.75; }
+
+  .concept-box {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px 22px;
+    background: var(--surface);
+    margin: 16px 0;
+    display: flex;
+    gap: 16px;
+    align-items: flex-start;
+  }
+
+  .concept-icon { font-size: 22px; flex-shrink: 0; margin-top: 2px; }
+  .concept-box h4 { font-size: 14px; font-weight: 700; margin-bottom: 6px; }
+  .concept-box p { font-size: 13px; color: var(--muted); line-height: 1.6; }
+
+  .step-list { list-style: none; margin: 20px 0; }
+
+  .step-list li {
+    display: flex;
+    gap: 14px;
+    align-items: flex-start;
+    margin-bottom: 16px;
+    font-size: 14px;
+    color: #c0c0d4;
+    line-height: 1.6;
+  }
+
+  .step-num {
+    flex-shrink: 0;
+    width: 24px; height: 24px;
+    background: rgba(124,106,247,0.15);
+    border: 1px solid rgba(124,106,247,0.3);
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--accent);
+    margin-top: 1px;
+  }
+
+  /* TDZ TIMELINE */
+  .tdz-timeline {
+    margin: 28px 0;
+    position: relative;
+  }
+
+  .timeline-line {
+    position: absolute;
+    left: 19px;
+    top: 0; bottom: 0;
+    width: 2px;
+    background: var(--border);
+  }
+
+  .timeline-item {
+    display: flex;
+    gap: 20px;
+    align-items: flex-start;
+    margin-bottom: 0;
+    position: relative;
+  }
+
+  .timeline-dot {
+    width: 12px; height: 12px;
+    border-radius: 50%;
+    border: 2px solid var(--border);
+    background: var(--bg);
+    flex-shrink: 0;
+    margin-top: 14px;
+    position: relative;
+    z-index: 1;
+    transition: border-color 0.2s;
+  }
+
+  .timeline-dot.active   { border-color: var(--accent);  background: rgba(124,106,247,0.2); }
+  .timeline-dot.danger   { border-color: #f87171;         background: rgba(239,68,68,0.15); }
+  .timeline-dot.success  { border-color: var(--accent2);  background: rgba(79,209,197,0.15); }
+  .timeline-dot.warn     { border-color: var(--accent3);  background: rgba(246,173,85,0.15); }
+
+  .timeline-content {
+    flex: 1;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 18px;
+    margin-bottom: 10px;
+  }
+
+  .timeline-content h4 { font-size: 13px; font-weight: 700; margin-bottom: 4px; }
+  .timeline-content p  { font-size: 13px; color: var(--muted); line-height: 1.55; }
+  .timeline-content code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: var(--accent3);
+  }
+
+  /* COMPARISON */
+  .compare-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    margin: 20px 0;
+  }
+
+  .compare-card {
+    border-radius: 10px;
+    padding: 18px 20px;
+    border: 1px solid var(--border);
+  }
+
+  .compare-card.danger  { background: rgba(239,68,68,0.05);  border-color: rgba(239,68,68,0.2); }
+  .compare-card.success { background: rgba(79,209,197,0.05); border-color: rgba(79,209,197,0.2); }
+
+  .compare-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+
+  .compare-card.danger  .compare-label { color: #f87171; }
+  .compare-card.success .compare-label { color: var(--accent2); }
+
+  /* STAGE BOXES */
+  .stage-row {
+    display: flex;
+    gap: 0;
+    margin: 24px 0;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+
+  .stage-box {
+    flex: 1;
+    padding: 18px 16px;
+    text-align: center;
+    border-right: 1px solid var(--border);
+  }
+
+  .stage-box:last-child { border-right: none; }
+
+  .stage-num {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+    margin-bottom: 8px;
+  }
+
+  .stage-title {
+    font-size: 13px;
+    font-weight: 700;
+    margin-bottom: 6px;
+  }
+
+  .stage-desc { font-size: 12px; color: var(--muted); line-height: 1.5; }
+
+  .stage-box.s1 { background: rgba(124,106,247,0.05); }
+  .stage-box.s2 { background: rgba(239,68,68,0.05); }
+  .stage-box.s3 { background: rgba(79,209,197,0.05); }
+
+  .stage-box.s1 .stage-title { color: var(--accent); }
+  .stage-box.s2 .stage-title { color: #f87171; }
+  .stage-box.s3 .stage-title { color: var(--accent2); }
+
+  /* MISCONCEPTION */
+  .misconception {
+    border-left: 3px solid #f87171;
+    background: rgba(239,68,68,0.04);
+    border-radius: 0 8px 8px 0;
+    padding: 14px 18px;
+    margin: 14px 0;
+  }
+
+  .misconception .m-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: #f87171;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+
+  .misconception p { font-size: 14px; color: #c0c0d4; line-height: 1.65; }
+
+  /* BADGE */
+  .badge {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    display: inline-block;
+  }
+
+  .badge.green  { background: rgba(79,209,197,0.1);  color: var(--accent2); border: 1px solid rgba(79,209,197,0.2); }
+  .badge.red    { background: rgba(239,68,68,0.08);  color: #f87171;        border: 1px solid rgba(239,68,68,0.2); }
+
+  /* INTERVIEW BOX */
+  .interview-box {
+    background: rgba(124,106,247,0.06);
+    border: 1px solid rgba(124,106,247,0.25);
+    border-radius: 12px;
+    padding: 24px 28px;
+    margin: 24px 0;
+  }
+
+  .interview-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--accent);
+    margin-bottom: 12px;
+  }
+
+  .interview-box p { font-size: 15px; color: #c0c0d4; line-height: 1.75; }
+
+  /* MEMORY TRICK */
+  .memory-trick {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px 24px;
+    margin: 20px 0;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    line-height: 2;
+    color: #b0b0cc;
+  }
+
+  .memory-trick .var-label  { color: var(--accent); }
+  .memory-trick .let-label  { color: var(--accent2); }
+  .memory-trick .arrow      { color: var(--muted); margin: 0 6px; }
+  .memory-trick .undef      { color: var(--accent3); }
+  .memory-trick .err        { color: #f87171; }
+
+  /* TOC */
+  .toc {
+    position: fixed;
+    right: 32px;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    z-index: 100;
+  }
+
+  .toc-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--border);
+    cursor: pointer;
+    transition: background 0.2s, transform 0.2s;
+  }
+
+  .toc-dot:hover, .toc-dot.active { background: var(--accent); transform: scale(1.4); }
+
+  ::-webkit-scrollbar { width: 4px; height: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+  @media (max-width: 640px) {
+    header { padding: 48px 24px 40px; }
+    .container { padding: 40px 24px; }
+    .toc { display: none; }
+    .compare-grid { grid-template-columns: 1fr; }
+    .stage-row { flex-direction: column; }
+    .stage-box { border-right: none; border-bottom: 1px solid var(--border); }
+    .stage-box:last-child { border-bottom: none; }
+  }
+</style>
+</head>
+<body>
+
+<nav class="toc" id="toc"></nav>
+
+<header>
+  <h1>Temporal<br><span>Dead Zone</span></h1>
+  <p class="header-sub">Beginner-Friendly, Step-by-Step Explanation</p>
+</header>
+
+<div class="container">
+
+  <!-- 1. Simple Definition -->
+  <section class="section" id="s1" data-title="Definition">
+    <div class="section-number">01</div>
+    <h2 class="section-title"><span class="dot"></span>Simple Definition</h2>
+    <div class="prose">
+      <p>Temporal Dead Zone (TDZ) is the period of time when a variable <strong>exists in memory but cannot be used yet</strong>.</p>
+      <p>It happens with <code style="font-family:'JetBrains Mono',monospace;color:var(--accent2)">let</code> and <code style="font-family:'JetBrains Mono',monospace;color:var(--accent3)">const</code> variables from the start of their scope until the line where they are declared.</p>
+    </div>
+    <div class="analogy-block">
+      <div class="analogy-label">In simple words</div>
+      <p>A variable exists, but JavaScript does not allow you to access it yet.</p>
+    </div>
+  </section>
+
+  <!-- 2. Step by Step -->
+  <section class="section" id="s2" data-title="Step by Step">
+    <div class="section-number">02</div>
+    <h2 class="section-title"><span class="dot"></span>Breaking It Down Step by Step</h2>
+    <div class="prose"><p>Consider this code:</p></div>
+    <pre><code>{
+  <span class="fn">console</span>.<span class="fn">log</span>(a); <span class="cm">// ❌</span>
+
+  <span class="kw">let</span> a = <span class="num">10</span>;
+}</code></pre>
+
+    <div class="tdz-timeline">
+      <div class="timeline-line"></div>
+
+      <div class="timeline-item">
+        <div class="timeline-dot active"></div>
+        <div class="timeline-content">
+          <h4>Step 1 — Enter the block</h4>
+          <p>When JavaScript enters the block <code>{</code> it creates space for <code>a</code>. So <code>a</code> already exists.</p>
+        </div>
+      </div>
+
+      <div class="timeline-item">
+        <div class="timeline-dot danger"></div>
+        <div class="timeline-content">
+          <h4>Step 2 — Before the declaration line</h4>
+          <p>JavaScript reaches <code>console.log(a)</code>. At this moment: <code>a</code> exists ✅ but <code>a</code> is not initialized yet ❌<br><br>
+          Result: <strong style="color:#f87171;">ReferenceError: Cannot access 'a' before initialization</strong><br><br>
+          This period is called the <strong>Temporal Dead Zone (TDZ)</strong>.</p>
+        </div>
+      </div>
+
+      <div class="timeline-item">
+        <div class="timeline-dot warn"></div>
+        <div class="timeline-content">
+          <h4>Step 3 — Declaration line executes</h4>
+          <p>JavaScript reaches <code>let a = 10</code>. Now <code>a</code> gets initialized with the value <code>10</code>. The TDZ ends here.</p>
+        </div>
+      </div>
+
+      <div class="timeline-item">
+        <div class="timeline-dot success"></div>
+        <div class="timeline-content">
+          <h4>Step 4 — Variable becomes usable</h4>
+          <p>After initialization, <code>console.log(a)</code> outputs <strong style="color:var(--accent2);">10</strong>. JavaScript now allows access to <code>a</code>.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="prose" style="margin-top:8px;"><p><strong>Visual Timeline:</strong></p></div>
+    <pre><code>{
+  <span class="cm">// TDZ starts</span>
+
+  <span class="fn">console</span>.<span class="fn">log</span>(a); <span class="cm">// ❌</span>
+
+  <span class="kw">let</span> a = <span class="num">10</span>;
+
+  <span class="cm">// TDZ ends</span>
+
+  <span class="fn">console</span>.<span class="fn">log</span>(a); <span class="cm">// ✅ → 10</span>
+}</code></pre>
+  </section>
+
+  <!-- 3. Why Does TDZ Exist -->
+  <section class="section" id="s3" data-title="Why TDZ Exists">
+    <div class="section-number">03</div>
+    <h2 class="section-title"><span class="dot"></span>Why Does TDZ Exist?</h2>
+    <div class="prose">
+      <p>Before <code style="font-family:'JetBrains Mono',monospace;color:var(--accent2)">let</code> and <code style="font-family:'JetBrains Mono',monospace;color:var(--accent3)">const</code>, JavaScript mainly used <code style="font-family:'JetBrains Mono',monospace;color:var(--accent)">var</code>.</p>
+    </div>
+    <pre><code><span class="fn">console</span>.<span class="fn">log</span>(x); <span class="cm">// undefined — no error!</span>
+
+<span class="kw">var</span> x = <span class="num">10</span>;</code></pre>
+    <div class="prose">
+      <p>This often caused bugs because developers accidentally used variables before assigning values. To make code safer, JavaScript introduced <code style="font-family:'JetBrains Mono',monospace;color:var(--accent2)">let</code> and <code style="font-family:'JetBrains Mono',monospace;color:var(--accent3)">const</code>.</p>
+      <p>Now JavaScript throws an error instead of silently giving <code style="font-family:'JetBrains Mono',monospace;color:var(--accent3)">undefined</code>. This helps developers find mistakes earlier.</p>
+    </div>
+  </section>
+
+  <!-- 4. TDZ with const / functions -->
+  <section class="section" id="s4" data-title="TDZ Examples">
+    <div class="section-number">04</div>
+    <h2 class="section-title"><span class="dot"></span>TDZ with const & Functions</h2>
+
+    <div class="concept-box">
+      <div class="concept-icon">📌</div>
+      <div>
+        <h4>TDZ with const</h4>
+        <p><code style="font-family:'JetBrains Mono',monospace;color:var(--accent3)">const</code> follows the exact same TDZ rules as <code style="font-family:'JetBrains Mono',monospace;color:var(--accent2)">let</code>.</p>
+      </div>
+    </div>
+    <pre><code><span class="fn">console</span>.<span class="fn">log</span>(pi); <span class="cm">// ❌ ReferenceError</span>
+
+<span class="kw">const</span> pi = <span class="num">3.14</span>;</code></pre>
+
+    <div class="prose" style="margin-top:28px;"><p><strong>TDZ with Functions — this works:</strong></p></div>
+    <pre><code>{
+  <span class="kw">let</span> age = <span class="num">20</span>;
+
+  <span class="kw">function</span> <span class="fn">show</span>() {
+    <span class="fn">console</span>.<span class="fn">log</span>(age);
+  }
+
+  <span class="fn">show</span>(); <span class="cm">// ✅ → 20</span>
+}</code></pre>
+    <div class="concept-box">
+      <div class="concept-icon">✅</div>
+      <div><h4>Works because</h4><p><code style="font-family:'JetBrains Mono',monospace;color:var(--accent2)">age</code> is initialized before <code style="font-family:'JetBrains Mono',monospace;color:var(--accent)">show()</code> runs.</p></div>
+    </div>
+
+    <div class="prose" style="margin-top:24px;"><p><strong>TDZ with Functions — this breaks:</strong></p></div>
+    <pre><code>{
+  <span class="fn">show</span>(); <span class="cm">// ❌ ReferenceError</span>
+
+  <span class="kw">let</span> age = <span class="num">20</span>;
+
+  <span class="kw">function</span> <span class="fn">show</span>() {
+    <span class="fn">console</span>.<span class="fn">log</span>(age);
+  }
+}</code></pre>
+    <div class="concept-box">
+      <div class="concept-icon">❌</div>
+      <div><h4>Breaks because</h4><p><code style="font-family:'JetBrains Mono',monospace;color:var(--accent)">show()</code> runs while <code style="font-family:'JetBrains Mono',monospace;color:var(--accent2)">age</code> is still inside its TDZ.</p></div>
+    </div>
+  </section>
+
+  <!-- 5. TDZ and Scope -->
+  <section class="section" id="s5" data-title="TDZ & Scope">
+    <div class="section-number">05</div>
+    <h2 class="section-title"><span class="dot"></span>TDZ and Scope Together</h2>
+    <pre><code><span class="kw">let</span> a = <span class="num">5</span>;
+
+{
+  <span class="fn">console</span>.<span class="fn">log</span>(a); <span class="cm">// ❌ ReferenceError (not 5!)</span>
+
+  <span class="kw">let</span> a = <span class="num">10</span>;
+}</code></pre>
+    <div class="analogy-block">
+      <div class="analogy-label">⚠️ Tricky part</div>
+      <p>Many beginners expect the output to be <strong>5</strong> — but it's a <strong style="color:#f87171;">ReferenceError</strong>.</p>
+    </div>
+    <div class="prose"><p>Why? Inside the block, JavaScript creates a <strong>new variable named <code style="font-family:'JetBrains Mono',monospace;color:var(--accent2)">a</code></strong>. That inner <code style="font-family:'JetBrains Mono',monospace;color:var(--accent2)">a</code> starts existing as soon as the block begins. So when JavaScript sees <code style="font-family:'JetBrains Mono',monospace;color:var(--accent)">console.log(a)</code>, it tries to use the inner <code style="font-family:'JetBrains Mono',monospace;color:var(--accent2)">a</code> — not the outer one. Since the inner <code style="font-family:'JetBrains Mono',monospace;color:var(--accent2)">a</code> has not been initialized yet, it is in the TDZ.</p></div>
+  </section>
+
+  <!-- 6. Common Confusions -->
+  <section class="section" id="s6" data-title="Common Confusions">
+    <div class="section-number">06</div>
+    <h2 class="section-title"><span class="dot"></span>Common Confusions</h2>
+
+    <div class="misconception">
+      <div class="m-label">Confusion 1 — Does the variable exist during TDZ?</div>
+      <p>Yes. The variable already <strong>exists in memory</strong>. The problem is that JavaScript does not allow access to it yet.</p>
+    </div>
+
+    <div class="misconception">
+      <div class="m-label">Confusion 2 — Is TDZ the same as undefined?</div>
+      <p>No. These are completely different behaviors.</p>
+    </div>
+
+    <div class="compare-grid">
+      <div class="compare-card success">
+        <div class="compare-label">✅ Using var</div>
+        <pre style="margin:0;background:transparent;border:none;padding:0;"><code><span class="fn">console</span>.<span class="fn">log</span>(a);
+<span class="kw">var</span> a = <span class="num">10</span>;
+<span class="cm">// Output: undefined</span></code></pre>
+      </div>
+      <div class="compare-card danger">
+        <div class="compare-label">❌ Using let</div>
+        <pre style="margin:0;background:transparent;border:none;padding:0;"><code><span class="fn">console</span>.<span class="fn">log</span>(a);
+<span class="kw">let</span> a = <span class="num">10</span>;
+<span class="cm">// ReferenceError</span></code></pre>
+      </div>
+    </div>
+
+    <div class="misconception" style="margin-top:20px;">
+      <div class="m-label">Confusion 3 — Does TDZ happen with var?</div>
+      <p>No. TDZ applies only to <span class="badge green">let</span> and <span class="badge green">const</span> — not to <span class="badge red">var</span>.</p>
+    </div>
+
+    <div class="misconception">
+      <div class="m-label">Confusion 4 — How long does TDZ last?</div>
+      <p>From the moment the <strong>scope starts</strong> until the <strong>declaration line executes</strong>.</p>
+    </div>
+  </section>
+
+  <!-- 7. Mental Model -->
+  <section class="section" id="s7" data-title="Mental Model">
+    <div class="section-number">07</div>
+    <h2 class="section-title"><span class="dot"></span>Mental Model</h2>
+    <div class="prose"><p>Think of every <code style="font-family:'JetBrains Mono',monospace;color:var(--accent2)">let</code> and <code style="font-family:'JetBrains Mono',monospace;color:var(--accent3)">const</code> variable as going through three stages:</p></div>
+    <div class="stage-row">
+      <div class="stage-box s1">
+        <div class="stage-num">STAGE 1</div>
+        <div class="stage-title">Scope starts</div>
+        <div class="stage-desc">Variable exists.</div>
+      </div>
+      <div class="stage-box s2">
+        <div class="stage-num">STAGE 2</div>
+        <div class="stage-title">TDZ</div>
+        <div class="stage-desc">Variable exists but cannot be accessed.</div>
+      </div>
+      <div class="stage-box s3">
+        <div class="stage-num">STAGE 3</div>
+        <div class="stage-title">Initialization</div>
+        <div class="stage-desc">Variable gets a value and becomes usable.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 8. Summary -->
+  <section class="section" id="s8" data-title="Summary">
+    <div class="section-number">08</div>
+    <h2 class="section-title"><span class="dot"></span>Simple Summary</h2>
+
+    <ul class="step-list">
+      <li><span class="step-num">1</span>TDZ stands for <strong>Temporal Dead Zone</strong>.</li>
+      <li><span class="step-num">2</span>It is the period between entering a scope and executing the <code style="font-family:'JetBrains Mono',monospace;color:var(--accent2)">let</code> or <code style="font-family:'JetBrains Mono',monospace;color:var(--accent3)">const</code> declaration.</li>
+      <li><span class="step-num">3</span>During TDZ: the variable exists, but JavaScript does not allow access to it.</li>
+      <li><span class="step-num">4</span>Accessing it causes a <strong style="color:#f87171;">ReferenceError</strong>.</li>
+      <li><span class="step-num">5</span>TDZ applies to <span class="badge green">let</span> <span class="badge green">const</span> — not to <span class="badge red">var</span>.</li>
+    </ul>
+
+    <div class="prose" style="margin-top:8px;margin-bottom:16px;"><p><strong>One-Line Memory Trick:</strong></p></div>
+    <div class="memory-trick">
+      <div><span class="var-label">var</span><span class="arrow">→</span>Exists<span class="arrow">→</span><span class="undef">undefined</span></div>
+      <div><span class="let-label">let / const</span><span class="arrow">→</span>Exists<span class="arrow">→</span>TDZ<span class="arrow">→</span><span class="err">Error until initialized</span></div>
+    </div>
+
+    <div class="interview-box">
+      <div class="interview-label">🎤 Interview Definition</div>
+      <p>The Temporal Dead Zone is the period from the start of a scope until a <code style="font-family:'JetBrains Mono',monospace;color:var(--accent2)">let</code> or <code style="font-family:'JetBrains Mono',monospace;color:var(--accent3)">const</code> variable is initialized, during which accessing the variable throws a <strong style="color:#f87171;">ReferenceError</strong>.</p>
+    </div>
+  </section>
+
+</div>
+
+<script>
+  const sections = document.querySelectorAll('.section');
+  const toc = document.getElementById('toc');
+
+  sections.forEach((sec) => {
+    const dot = document.createElement('div');
+    dot.className = 'toc-dot';
+    dot.title = sec.dataset.title || '';
+    dot.addEventListener('click', () => sec.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+    toc.appendChild(dot);
+  });
+
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      const idx = [...sections].indexOf(entry.target);
+      if (entry.isIntersecting) {
+        entry.target.classList.add('visible');
+        document.querySelectorAll('.toc-dot').forEach((d, i) => {
+          d.classList.toggle('active', i === idx);
+        });
+      }
+    });
+  }, { threshold: 0.15 });
+
+  sections.forEach(s => observer.observe(s));
+</script>
+</body>
+</html>
