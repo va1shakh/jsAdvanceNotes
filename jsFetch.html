@@ -1,0 +1,792 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fetch API, Async & Await — JavaScript Advanced Notes</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@400;500&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0d0d0f;
+    --surface: #141417;
+    --surface2: #1a1a1f;
+    --border: #252530;
+    --accent: #7c6af7;
+    --accent2: #4fd1c5;
+    --accent3: #f6ad55;
+    --text: #e8e8f0;
+    --muted: #7a7a94;
+    --code-bg: #0a0a0d;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Syne', sans-serif;
+    font-size: 16px;
+    line-height: 1.7;
+    min-height: 100vh;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0.5;
+  }
+
+  header {
+    position: relative;
+    padding: 80px 40px 60px;
+    border-bottom: 1px solid var(--border);
+    overflow: hidden;
+  }
+
+  header::after {
+    content: '';
+    position: absolute;
+    top: -60px; left: -60px;
+    width: 400px; height: 400px;
+    background: radial-gradient(circle, rgba(124,106,247,0.12) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  .header-tag {
+    display: inline-block;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--accent);
+    border: 1px solid rgba(124,106,247,0.3);
+    padding: 4px 12px;
+    border-radius: 20px;
+    margin-bottom: 20px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  header h1 {
+    font-size: clamp(28px, 5vw, 52px);
+    font-weight: 800;
+    line-height: 1.1;
+    letter-spacing: -0.03em;
+    max-width: 700px;
+  }
+
+  header h1 span {
+    font-family: 'Instrument Serif', serif;
+    font-style: italic;
+    color: var(--accent);
+  }
+
+  .header-sub {
+    margin-top: 16px;
+    color: var(--muted);
+    font-size: 14px;
+    font-weight: 400;
+    letter-spacing: 0.02em;
+  }
+
+  .container {
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 60px 40px;
+    position: relative;
+    z-index: 1;
+  }
+
+  .section {
+    margin-bottom: 64px;
+    opacity: 0;
+    transform: translateY(24px);
+    transition: opacity 0.5s ease, transform 0.5s ease;
+  }
+
+  .section.visible { opacity: 1; transform: translateY(0); }
+
+  .section-number {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+    margin-bottom: 8px;
+  }
+
+  .section-title {
+    font-size: 24px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    margin-bottom: 28px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .section-title .dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--accent);
+    flex-shrink: 0;
+  }
+
+  .prose { font-size: 15px; color: #c0c0d4; line-height: 1.8; font-weight: 400; }
+  .prose p { margin-bottom: 16px; }
+  .prose p:last-child { margin-bottom: 0; }
+  strong { color: var(--text); font-weight: 600; }
+
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    border-radius: 8px;
+    padding: 20px 22px;
+    overflow-x: auto;
+    margin: 20px 0;
+  }
+
+  pre code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    line-height: 1.8;
+    color: #b0b0cc;
+  }
+
+  .kw  { color: #c792ea; }
+  .fn  { color: #82aaff; }
+  .str { color: #c3e88d; }
+  .cm  { color: #546e7a; font-style: italic; }
+  .num { color: var(--accent3); }
+  .aw  { color: var(--accent2); }
+
+  /* DEF CARDS */
+  .def-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 14px;
+    margin-bottom: 28px;
+  }
+
+  .def-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px 22px;
+    transition: border-color 0.2s, transform 0.2s;
+  }
+
+  .def-card:hover { border-color: rgba(124,106,247,0.4); transform: translateY(-2px); }
+  .def-card h3 { font-size: 14px; font-weight: 700; color: var(--accent); margin-bottom: 8px; }
+  .def-card p  { font-size: 14px; color: var(--muted); line-height: 1.6; font-weight: 400; }
+
+  /* ANALOGY */
+  .analogy-block {
+    background: linear-gradient(135deg, rgba(124,106,247,0.07), rgba(79,209,197,0.04));
+    border: 1px solid rgba(124,106,247,0.2);
+    border-radius: 12px;
+    padding: 24px 28px;
+    margin: 24px 0;
+  }
+
+  .analogy-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--accent2);
+    margin-bottom: 12px;
+  }
+
+  .analogy-block p { font-size: 15px; color: #c0c0d4; line-height: 1.75; }
+
+  /* COMPARE GRID */
+  .compare-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    margin: 20px 0;
+  }
+
+  .compare-card {
+    border-radius: 10px;
+    padding: 18px 20px;
+    border: 1px solid var(--border);
+  }
+
+  .compare-card.danger  { background: rgba(239,68,68,0.05);  border-color: rgba(239,68,68,0.2); }
+  .compare-card.success { background: rgba(79,209,197,0.05); border-color: rgba(79,209,197,0.2); }
+
+  .compare-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+
+  .compare-card.danger  .compare-label { color: #f87171; }
+  .compare-card.success .compare-label { color: var(--accent2); }
+
+  /* CONCEPT BOX */
+  .concept-box {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px 22px;
+    background: var(--surface);
+    margin: 16px 0;
+    display: flex;
+    gap: 16px;
+    align-items: flex-start;
+  }
+
+  .concept-icon { font-size: 22px; flex-shrink: 0; margin-top: 2px; }
+  .concept-box h4 { font-size: 14px; font-weight: 700; margin-bottom: 6px; }
+  .concept-box p  { font-size: 13px; color: var(--muted); line-height: 1.6; }
+
+  /* STEP LIST */
+  .step-list { list-style: none; margin: 20px 0; }
+
+  .step-list li {
+    display: flex;
+    gap: 14px;
+    align-items: flex-start;
+    margin-bottom: 14px;
+    font-size: 14px;
+    color: #c0c0d4;
+    line-height: 1.6;
+  }
+
+  .step-num {
+    flex-shrink: 0;
+    width: 24px; height: 24px;
+    background: rgba(124,106,247,0.15);
+    border: 1px solid rgba(124,106,247,0.3);
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--accent);
+    margin-top: 1px;
+  }
+
+  /* FLOW CHAIN */
+  .flow-chain {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    margin: 24px 0;
+    max-width: 320px;
+  }
+
+  .flow-node {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 18px;
+    font-size: 13px;
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--text);
+    text-align: center;
+  }
+
+  .flow-node.highlight {
+    border-color: var(--accent2);
+    color: var(--accent2);
+    background: rgba(79,209,197,0.07);
+  }
+
+  .flow-node.accent {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: rgba(124,106,247,0.08);
+  }
+
+  .flow-arrow-down {
+    text-align: center;
+    color: var(--muted);
+    font-size: 14px;
+    line-height: 1.4;
+    padding: 2px 0;
+  }
+
+  /* REQUEST VISUAL */
+  .request-visual {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px 24px;
+    margin: 20px 0;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+  }
+
+  .req-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 10px;
+    flex-wrap: wrap;
+  }
+
+  .req-row:last-child { margin-bottom: 0; }
+
+  .req-node {
+    padding: 6px 14px;
+    border-radius: 6px;
+    font-size: 12px;
+    white-space: nowrap;
+  }
+
+  .req-node.browser { background: rgba(124,106,247,0.15); color: var(--accent);  border: 1px solid rgba(124,106,247,0.3); }
+  .req-node.server  { background: rgba(79,209,197,0.12);  color: var(--accent2); border: 1px solid rgba(79,209,197,0.25); }
+
+  .req-arrow { color: var(--muted); flex: 1; text-align: center; font-size: 14px; min-width: 40px; }
+  .req-label { color: var(--muted); font-size: 11px; font-style: italic; }
+
+  /* PIZZA ROW */
+  .pizza-row {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin: 20px 0;
+  }
+
+  .pizza-pill {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 16px;
+    font-size: 13px;
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--text);
+  }
+
+  .pizza-pill span { color: var(--muted); font-size: 11px; display: block; margin-top: 2px; }
+
+  /* MISCONCEPTION */
+  .misconception {
+    border-left: 3px solid #f87171;
+    background: rgba(239,68,68,0.04);
+    border-radius: 0 8px 8px 0;
+    padding: 14px 18px;
+    margin: 14px 0;
+  }
+
+  .misconception .m-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: #f87171;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+
+  .misconception p { font-size: 14px; color: #c0c0d4; line-height: 1.65; }
+
+  /* SUMMARY PIZZA */
+  .summary-pizza {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin: 20px 0;
+  }
+
+  .sp-card {
+    flex: 1;
+    min-width: 140px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 18px;
+    text-align: center;
+  }
+
+  .sp-icon  { font-size: 24px; margin-bottom: 8px; }
+  .sp-title { font-size: 12px; font-weight: 700; color: var(--accent); margin-bottom: 4px; font-family: 'JetBrains Mono', monospace; }
+  .sp-desc  { font-size: 12px; color: var(--muted); line-height: 1.5; }
+
+  /* TOC */
+  .toc {
+    position: fixed;
+    right: 32px;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    z-index: 100;
+  }
+
+  .toc-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--border);
+    cursor: pointer;
+    transition: background 0.2s, transform 0.2s;
+  }
+
+  .toc-dot:hover, .toc-dot.active { background: var(--accent); transform: scale(1.4); }
+
+  ::-webkit-scrollbar { width: 4px; height: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+  @media (max-width: 640px) {
+    header { padding: 48px 24px 40px; }
+    .container { padding: 40px 24px; }
+    .toc { display: none; }
+    .compare-grid { grid-template-columns: 1fr; }
+    .def-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<nav class="toc" id="toc"></nav>
+
+<header>
+  <div class="header-tag">// JavaScript Async</div>
+  <h1>Fetch API,<br><span>Async & Await</span></h1>
+  <p class="header-sub">Beginner-Friendly Guide</p>
+</header>
+
+<div class="container">
+
+  <!-- 1. Simple Definition -->
+  <section class="section" id="s1" data-title="Definition">
+    <div class="section-number">01</div>
+    <h2 class="section-title"><span class="dot"></span>Simple Definition</h2>
+    <div class="def-grid">
+      <div class="def-card">
+        <h3>Fetch API</h3>
+        <p>A JavaScript tool used to get data from somewhere else, usually a server on the internet.</p>
+      </div>
+      <div class="def-card">
+        <h3>Async & Await</h3>
+        <p>JavaScript features that help you wait for a task to finish without freezing your program.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 2. Analogy -->
+  <section class="section" id="s2" data-title="Analogy">
+    <div class="section-number">02</div>
+    <h2 class="section-title"><span class="dot"></span>Analogy — You at a Restaurant</h2>
+
+    <div class="compare-grid">
+      <div class="compare-card danger">
+        <div class="compare-label">❌ Without Async/Await — Blocking</div>
+        <p style="font-size:13px;color:#c0c0d4;line-height:1.65;">You tell the waiter: <em>"Bring me a pizza."</em><br><br>Then you stand at the counter and do nothing until the pizza arrives. You can't talk. You can't use your phone. You can't do anything else.</p>
+      </div>
+      <div class="compare-card success">
+        <div class="compare-label">✅ With Async/Await — Non-Blocking</div>
+        <p style="font-size:13px;color:#c0c0d4;line-height:1.65;">You tell the waiter: <em>"Bring me a pizza."</em><br><br>Then you chat with friends, scroll Instagram, drink water. When the pizza arrives, you continue eating.</p>
+      </div>
+    </div>
+
+    <div class="analogy-block">
+      <div class="analogy-label">💡 JavaScript works like this</div>
+      <p>While waiting for data from the internet, JavaScript can continue doing other work.</p>
+    </div>
+  </section>
+
+  <!-- 3. Why Fetch API -->
+  <section class="section" id="s3" data-title="Why Fetch">
+    <div class="section-number">03</div>
+    <h2 class="section-title"><span class="dot"></span>Why Do We Need Fetch API?</h2>
+    <div class="prose">
+      <p>Suppose you open Instagram. The app needs to get posts, comments, likes, and your user profile. These are not stored inside your browser — Instagram's servers have them.</p>
+      <p>So the browser asks: <strong>"Hey server, send me the posts."</strong><br>The tool used for this request is often <strong>Fetch API</strong>.</p>
+    </div>
+
+    <div class="concept-box">
+      <div class="concept-icon">🖥️</div>
+      <div>
+        <h4>What is a Server?</h4>
+        <p>A giant computer that stores information. Instagram servers store posts. Spotify servers store songs. Google Maps servers store locations. Your browser asks the server for data — the server sends data back.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4. What is Fetch + Promise -->
+  <section class="section" id="s4" data-title="Fetch & Promise">
+    <div class="section-number">04</div>
+    <h2 class="section-title"><span class="dot"></span>Fetch & the Promise Problem</h2>
+
+    <div class="prose"><p>A basic fetch request:</p></div>
+    <pre><code><span class="fn">fetch</span>(<span class="str">"https://api.example.com/users"</span>);</code></pre>
+    <div class="prose"><p>This means: <strong>"Go to this address and bring me the data."</strong></p>
+    <p>But getting data takes time — maybe 1, 2, or 5 seconds. JavaScript cannot instantly get the answer. So Fetch returns something called a <strong>Promise</strong>.</p></div>
+
+    <div class="analogy-block">
+      <div class="analogy-label">🍕 What is a Promise?</div>
+      <p>You order pizza. Immediately after ordering, the pizza is not ready yet. You only have a <strong>promise</strong> that it will arrive.<br><br>Same thing with fetch — the data isn't here yet. You only have a promise.</p>
+    </div>
+
+    <pre><code><span class="kw">const</span> data = <span class="fn">fetch</span>(url);
+
+<span class="fn">console</span>.<span class="fn">log</span>(data); <span class="cm">// Promise { &lt;pending&gt; }</span></code></pre>
+  </section>
+
+  <!-- 5. Async & Await -->
+  <section class="section" id="s5" data-title="Async & Await">
+    <div class="section-number">05</div>
+    <h2 class="section-title"><span class="dot"></span>Enter Async and Await</h2>
+    <div class="prose"><p>Async and Await make working with promises easier.</p></div>
+
+    <div class="concept-box">
+      <div class="concept-icon">⚙️</div>
+      <div>
+        <h4>async</h4>
+        <p>When you put <code style="font-family:'JetBrains Mono',monospace;color:var(--accent2)">async</code> before a function, you are telling JavaScript: <strong>"This function may need to wait for something."</strong></p>
+      </div>
+    </div>
+    <pre><code><span class="kw">async</span> <span class="kw">function</span> <span class="fn">getUser</span>() {
+  <span class="cm">// this function may need to wait</span>
+}</code></pre>
+
+    <div class="concept-box">
+      <div class="concept-icon">⏳</div>
+      <div>
+        <h4>await</h4>
+        <p><code style="font-family:'JetBrains Mono',monospace;color:var(--accent2)">await</code> means: <strong>"Pause this function until the result arrives."</strong></p>
+      </div>
+    </div>
+    <pre><code><span class="kw">const</span> response = <span class="aw">await</span> <span class="fn">fetch</span>(url);
+
+<span class="cm">// Send request → Wait for response → Continue</span></code></pre>
+  </section>
+
+  <!-- 6. How Fetch Actually Works -->
+  <section class="section" id="s6" data-title="How It Works">
+    <div class="section-number">06</div>
+    <h2 class="section-title"><span class="dot"></span>How Fetch Actually Works</h2>
+    <pre><code><span class="kw">async</span> <span class="kw">function</span> <span class="fn">getUsers</span>() {
+  <span class="kw">const</span> response = <span class="aw">await</span> <span class="fn">fetch</span>(
+    <span class="str">"https://jsonplaceholder.typicode.com/users"</span>
+  );
+
+  <span class="kw">const</span> users = <span class="aw">await</span> response.<span class="fn">json</span>();
+
+  <span class="fn">console</span>.<span class="fn">log</span>(users);
+}</code></pre>
+
+    <ul class="step-list" style="margin-top:24px;">
+      <li>
+        <span class="step-num">1</span>
+        <div>
+          <strong>await fetch(url)</strong> — Browser sends request and waits.
+          <div class="request-visual" style="margin-top:10px;">
+            <div class="req-row">
+              <div class="req-node browser">Browser</div>
+              <div class="req-arrow">──────→</div>
+              <div class="req-node server">Server</div>
+              <div class="req-label">"Send users"</div>
+            </div>
+          </div>
+        </div>
+      </li>
+      <li>
+        <span class="step-num">2</span>
+        <div>
+          <strong>Server responds</strong> — Data arrives and is stored inside <code style="font-family:'JetBrains Mono',monospace;color:var(--accent2)">response</code>.
+          <div class="request-visual" style="margin-top:10px;">
+            <div class="req-row">
+              <div class="req-node server">Server</div>
+              <div class="req-arrow">──────→</div>
+              <div class="req-node browser">Browser</div>
+              <div class="req-label">"Here are users"</div>
+            </div>
+          </div>
+        </div>
+      </li>
+      <li>
+        <span class="step-num">3</span>
+        <div><strong>await response.json()</strong> — The response arrives as raw data. <code style="font-family:'JetBrains Mono',monospace;color:var(--accent)">json()</code> converts it into a JavaScript object/array.</div>
+      </li>
+      <li>
+        <span class="step-num">4</span>
+        <div><strong>console.log(users)</strong> — Now you can use the data.</div>
+      </li>
+    </ul>
+
+    <div class="prose" style="margin-top:8px;margin-bottom:12px;"><p><strong>Visual Flow:</strong></p></div>
+    <div class="flow-chain">
+      <div class="flow-node accent">fetch()</div>
+      <div class="flow-arrow-down">↓</div>
+      <div class="flow-node">Returns Promise</div>
+      <div class="flow-arrow-down">↓</div>
+      <div class="flow-node accent">await</div>
+      <div class="flow-arrow-down">↓</div>
+      <div class="flow-node">Wait for server</div>
+      <div class="flow-arrow-down">↓</div>
+      <div class="flow-node">Response received</div>
+      <div class="flow-arrow-down">↓</div>
+      <div class="flow-node">response.json()</div>
+      <div class="flow-arrow-down">↓</div>
+      <div class="flow-node highlight">JavaScript object → Use data</div>
+    </div>
+  </section>
+
+  <!-- 7. Why Not Fetch Alone -->
+  <section class="section" id="s7" data-title="Why Async/Await">
+    <div class="section-number">07</div>
+    <h2 class="section-title"><span class="dot"></span>Why Not Just Use Fetch Alone?</h2>
+
+    <div class="compare-grid">
+      <div class="compare-card danger">
+        <div class="compare-label">😵 With .then() — Harder to read</div>
+        <pre style="margin:0;background:transparent;border:none;padding:0;"><code><span class="fn">fetch</span>(url)
+  .<span class="fn">then</span>(res => res.<span class="fn">json</span>())
+  .<span class="fn">then</span>(data => {
+    <span class="fn">console</span>.<span class="fn">log</span>(data);
+  });</code></pre>
+      </div>
+      <div class="compare-card success">
+        <div class="compare-label">✅ With Async/Await — Clean & clear</div>
+        <pre style="margin:0;background:transparent;border:none;padding:0;"><code><span class="kw">const</span> res  = <span class="aw">await</span> <span class="fn">fetch</span>(url);
+<span class="kw">const</span> data = <span class="aw">await</span> res.<span class="fn">json</span>();
+
+<span class="fn">console</span>.<span class="fn">log</span>(data);</code></pre>
+      </div>
+    </div>
+    <div class="analogy-block">
+      <div class="analogy-label">💡 Key benefit</div>
+      <p>Async/Await looks like normal <strong>top-to-bottom code</strong> — much easier to understand.</p>
+    </div>
+  </section>
+
+  <!-- 8. Common Confusions -->
+  <section class="section" id="s8" data-title="Common Confusions">
+    <div class="section-number">08</div>
+    <h2 class="section-title"><span class="dot"></span>Common Confusions</h2>
+
+    <div class="misconception">
+      <div class="m-label">Confusion 1 — Does Await Stop JavaScript?</div>
+      <p>No. It only pauses the <strong>current async function</strong>. The rest of JavaScript can continue running.</p>
+    </div>
+
+    <div class="misconception">
+      <div class="m-label">Confusion 2 — Is Fetch the Same as Async/Await?</div>
+      <p>No. <strong>Fetch</strong> is used to request data. <strong>Async/Await</strong> is used to handle the waiting.<br><br>
+      Think: <strong>Fetch = ordering pizza. Await = waiting for pizza.</strong></p>
+    </div>
+
+    <div class="misconception">
+      <div class="m-label">Confusion 3 — Does Fetch Return Data Directly?</div>
+      <p>No. Fetch returns a <strong>Promise</strong>, not the data. Many beginners expect <code style="font-family:'JetBrains Mono',monospace;color:var(--accent3)">const data = fetch(url)</code> to work — but it gives <code style="font-family:'JetBrains Mono',monospace;color:#f87171">Promise &lt;pending&gt;</code>. You must <code style="font-family:'JetBrains Mono',monospace;color:var(--accent2)">await</code> it.</p>
+    </div>
+
+    <div class="misconception">
+      <div class="m-label">Confusion 4 — Why Use Await Twice?</div>
+      <p>Because <strong>both operations take time</strong>:</p>
+    </div>
+    <pre><code><span class="kw">const</span> response = <span class="aw">await</span> <span class="fn">fetch</span>(url);    <span class="cm">// wait for server response</span>
+<span class="kw">const</span> data     = <span class="aw">await</span> response.<span class="fn">json</span>(); <span class="cm">// wait for JSON conversion</span></code></pre>
+  </section>
+
+  <!-- 9. Complete Example -->
+  <section class="section" id="s9" data-title="Complete Example">
+    <div class="section-number">09</div>
+    <h2 class="section-title"><span class="dot"></span>Complete Example</h2>
+    <pre><code><span class="kw">async</span> <span class="kw">function</span> <span class="fn">getUsers</span>() {
+  <span class="kw">const</span> response = <span class="aw">await</span> <span class="fn">fetch</span>(
+    <span class="str">"https://jsonplaceholder.typicode.com/users"</span>
+  );
+
+  <span class="kw">const</span> users = <span class="aw">await</span> response.<span class="fn">json</span>();
+
+  <span class="fn">console</span>.<span class="fn">log</span>(users);
+}
+
+<span class="fn">getUsers</span>();</code></pre>
+
+    <ul class="step-list" style="margin-top:20px;">
+      <li><span class="step-num">1</span>Call function</li>
+      <li><span class="step-num">2</span>Fetch users from server</li>
+      <li><span class="step-num">3</span>Promise returned</li>
+      <li><span class="step-num">4</span>Await waits</li>
+      <li><span class="step-num">5</span>Server responds</li>
+      <li><span class="step-num">6</span>Convert JSON</li>
+      <li><span class="step-num">7</span>Display users</li>
+    </ul>
+  </section>
+
+  <!-- 10. Simple Summary -->
+  <section class="section" id="s10" data-title="Summary">
+    <div class="section-number">10</div>
+    <h2 class="section-title"><span class="dot"></span>Simple Summary</h2>
+
+    <ul class="step-list">
+      <li><span class="step-num">1</span>Fetch API is used to <strong>get data from a server</strong>.</li>
+      <li><span class="step-num">2</span>Fetch returns a <strong>Promise</strong>, not the actual data.</li>
+      <li><span class="step-num">3</span><code style="font-family:'JetBrains Mono',monospace;color:var(--accent2)">async</code> tells JavaScript that a function may need to wait.</li>
+      <li><span class="step-num">4</span><code style="font-family:'JetBrains Mono',monospace;color:var(--accent2)">await</code> waits for a Promise to finish.</li>
+      <li><span class="step-num">5</span><code style="font-family:'JetBrains Mono',monospace;color:var(--accent2)">await fetch()</code> waits for the server response.</li>
+      <li><span class="step-num">6</span><code style="font-family:'JetBrains Mono',monospace;color:var(--accent2)">await response.json()</code> waits for JSON conversion.</li>
+      <li><span class="step-num">7</span>Fetch and Async/Await are <strong>commonly used together</strong>.</li>
+    </ul>
+
+    <div class="prose" style="margin-top:8px;margin-bottom:16px;"><p><strong>Think of it as:</strong></p></div>
+    <div class="summary-pizza">
+      <div class="sp-card">
+        <div class="sp-icon">🍕</div>
+        <div class="sp-title">Fetch</div>
+        <div class="sp-desc">Ordering pizza</div>
+      </div>
+      <div class="sp-card">
+        <div class="sp-icon">🤝</div>
+        <div class="sp-title">Promise</div>
+        <div class="sp-desc">Pizza is being prepared</div>
+      </div>
+      <div class="sp-card">
+        <div class="sp-icon">⏳</div>
+        <div class="sp-title">Await</div>
+        <div class="sp-desc">Waiting for pizza</div>
+      </div>
+      <div class="sp-card">
+        <div class="sp-icon">✅</div>
+        <div class="sp-title">Result</div>
+        <div class="sp-desc">Pizza arrives</div>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<script>
+  const sections = document.querySelectorAll('.section');
+  const toc = document.getElementById('toc');
+
+  sections.forEach((sec) => {
+    const dot = document.createElement('div');
+    dot.className = 'toc-dot';
+    dot.title = sec.dataset.title || '';
+    dot.addEventListener('click', () => sec.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+    toc.appendChild(dot);
+  });
+
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      const idx = [...sections].indexOf(entry.target);
+      if (entry.isIntersecting) {
+        entry.target.classList.add('visible');
+        document.querySelectorAll('.toc-dot').forEach((d, i) => {
+          d.classList.toggle('active', i === idx);
+        });
+      }
+    });
+  }, { threshold: 0.15 });
+
+  sections.forEach(s => observer.observe(s));
+</script>
+</body>
+</html>
